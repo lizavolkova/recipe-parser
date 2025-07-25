@@ -1,5 +1,6 @@
 interface Recipe {
     title: string;
+    source?: string;
     description?: string;
     image?: string;
     ingredients: string[];
@@ -51,14 +52,21 @@ interface Recipe {
             />
           ) : null}
           <div className="absolute inset-0 bg-black/20 flex items-end">
-            <div className="p-6 text-white">
-              <h2 className="text-3xl font-bold mb-2">{recipe.title}</h2>
-              {recipe.description && (
-                <p className="text-white/90">{recipe.description}</p>
+          <div className="p-6 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-3xl font-bold">{recipe.title}</h2>
+              {recipe.source && (
+                <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
+                  📍 {recipe.source}
+                </div>
               )}
             </div>
+            {recipe.description && (
+              <p className="text-white/90">{recipe.description}</p>
+            )}
           </div>
         </div>
+      </div>
   
         <div className="p-8">
           {/* Recipe Meta */}

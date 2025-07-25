@@ -22,6 +22,9 @@ class RecipeConverter:
         title = RecipeConverter._get_value(data, 'name') or 'Untitled Recipe'
         description = RecipeConverter._get_value(data, 'description')
         
+        # Extract source information
+        source = RecipeConverter._extract_source(data)
+        
         # Extract and process ingredients
         ingredients = data.get('recipeIngredient', [])
         if not isinstance(ingredients, list):
@@ -47,11 +50,13 @@ class RecipeConverter:
         keywords = RecipeConverter._extract_keywords(data.get('keywords', []))
         
         print(f"Converted recipe: {title} with {len(ingredients)} ingredients, {len(instructions)} instructions")
+        print(f"  - source: {source}")
         
         return Recipe(
             title=str(title),
             description=str(description) if description else None,
             image=image,
+            source=source,
             ingredients=ingredients,
             instructions=instructions,
             prep_time=str(prep_time) if prep_time else None,
@@ -63,6 +68,61 @@ class RecipeConverter:
             found_structured_data=True,
             used_ai=False
         )
+    
+    @staticmethod
+    def _extract_source(data: Dict[str, Any]) -> Optional[str]:
+        """Extract source organization from structured data"""
+        
+        # Try publisher first (most reliable for organization)
+        publisher = data.get('publisher')
+        if publisher:
+            if isinstance(publisher, dict):
+                name = publisher.get('name')
+                if name:
+                    return str(name)
+            elif isinstance(publisher, str):
+                return publisher
+        
+        # Try author (might be organization or person)
+        author = data.get('author')
+        if author:
+            if isinstance(author, dict):
+                name = author.get('name')
+                if name and not RecipeConverter._looks_like_person_name(str(name)):
+                    return str(name)
+            elif isinstance(author, str) and not RecipeConverter._looks_like_person_name(author):
+                return author
+        
+        # Try mainEntityOfPage for blog/site name
+        main_entity = data.get('mainEntityOfPage')
+        if main_entity and isinstance(main_entity, dict):
+            site_name = main_entity.get('name')
+            if site_name:
+                return str(site_name)
+        
+        return None
+    
+    @staticmethod
+    def _looks_like_person_name(name: str) -> bool:
+        """Check if name looks like a person vs organization"""
+        name_lower = name.lower().strip()
+        
+        # Skip if it contains person indicators
+        person_indicators = [
+            'by ', 'recipe by', 'chef ', 'author:', 'cook:', 'created by'
+        ]
+        if any(indicator in name_lower for indicator in person_indicators):
+            return True
+        
+        # Skip if it looks like a person's name (First Last pattern)
+        words = name.split()
+        if len(words) == 2 and all(len(word) > 1 and word[0].isupper() for word in words):
+            # Additional check: avoid common blog/organization patterns
+            org_words = ['kitchen', 'recipes', 'cooking', 'food', 'blog', 'eats', 'taste', 'flavor']
+            if not any(org_word in name_lower for org_word in org_words):
+                return True  # Likely "First Last" person name
+        
+        return False
     
     @staticmethod
     def _get_value(data: Dict[str, Any], field_name: str) -> Optional[str]:

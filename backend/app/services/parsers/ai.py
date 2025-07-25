@@ -53,6 +53,7 @@ def _build_extraction_prompt(content: str) -> str:
         "title": "Recipe name (string)",
         "description": "Brief recipe description (string or null)",
         "image": "Main recipe image URL (string or null)",
+        "source": "Source organization/blog name like 'Love and Lemons' or 'Food Network' (string or null)",
         "ingredients": ["ingredient 1", "ingredient 2", ...],
         "instructions": ["step 1", "step 2", ...],
         "prep_time": "preparation time if mentioned (string or null)",
@@ -69,11 +70,12 @@ def _build_extraction_prompt(content: str) -> str:
     3. Each ingredient should include quantity and ingredient name
     4. Each instruction should be a complete cooking step
     5. For image: extract the main recipe photo URL (look for high-quality images, avoid icons/logos)
-    6. For cuisine: identify the cooking style (Italian, Chinese, Mexican, etc.)
-    7. For category: identify meal type (breakfast, lunch, dinner, appetizer, dessert, snack, etc.)
-    8. For keywords: extract relevant cooking terms, dietary restrictions, techniques
-    9. If you cannot find a clear recipe, return null
-    10. Return only valid JSON, no additional text
+    6. For source: extract the ORGANIZATION/BLOG name (e.g., "Love and Lemons", "Asian Inspirations", "Food Network"), NOT individual person names
+    7. For cuisine: identify the cooking style (Italian, Chinese, Mexican, etc.)
+    8. For category: identify meal type (breakfast, lunch, dinner, appetizer, dessert, snack, etc.)
+    9. For keywords: extract relevant cooking terms, dietary restrictions, techniques
+    10. If you cannot find a clear recipe, return null
+    11. Return only valid JSON, no additional text
 
     Webpage content:
     {content}
@@ -121,6 +123,7 @@ def _parse_ai_response(ai_response: str) -> Optional[Recipe]:
     ai_recipe = Recipe(
         title=recipe_data.get('title', 'AI Extracted Recipe'),
         description=recipe_data.get('description'),
+        image=recipe_data.get('image'),
         ingredients=recipe_data.get('ingredients', []),
         instructions=recipe_data.get('instructions', []),
         prep_time=recipe_data.get('prep_time'),
@@ -135,4 +138,5 @@ def _parse_ai_response(ai_response: str) -> Optional[Recipe]:
     
     print(f"🤖 AI extracted: {ai_recipe.title} with {len(ai_recipe.ingredients)} ingredients")
     print(f"🤖 AI metadata: cuisine={ai_recipe.cuisine}, category={ai_recipe.category}, keywords={len(ai_recipe.keywords)}")
+    print(f"🤖 AI image: {ai_recipe.image}")
     return ai_recipe

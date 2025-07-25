@@ -32,7 +32,7 @@ class RecipeService:
             print("🔍 Step 1: Trying recipe-scrapers...")
             recipe = service.recipe_scrapers_parser.parse(url)
             if recipe and RecipeConverter.is_complete_recipe(recipe):
-                recipe = service._ensure_image(recipe, og_image)
+                recipe = service._ensure_image_and_source(recipe, og_image, url)
                 print("✅ recipe-scrapers successful!")
                 return recipe
             
@@ -40,7 +40,7 @@ class RecipeService:
             print("🔍 Step 2: Trying extruct...")
             recipe = service.extruct_parser.parse(url, html_content=response.text)
             if recipe:
-                recipe = service._ensure_image(recipe, og_image)
+                recipe = service._ensure_image_and_source(recipe, og_image, url)
                 
                 if RecipeConverter.is_complete_recipe(recipe):
                     print("✅ extruct successful!")
@@ -56,7 +56,7 @@ class RecipeService:
             print("🔍 Step 3: Using AI...")
             ai_recipe = await parse_with_ai(soup, url)
             if ai_recipe:
-                ai_recipe = service._ensure_image(ai_recipe, og_image)
+                ai_recipe = service._ensure_image_and_source(ai_recipe, og_image, url)
                 
                 if RecipeConverter.is_complete_recipe(ai_recipe):
                     print("✅ AI successful!")
@@ -65,18 +65,20 @@ class RecipeService:
                     print("✅ AI good enough!")
                     return ai_recipe
             
-            # Return best attempt with og:image
+            # Return best attempt with og:image and source
             best_recipe = recipe or ai_recipe
             if best_recipe:
-                best_recipe = service._ensure_image(best_recipe, og_image)
+                best_recipe = service._ensure_image_and_source(best_recipe, og_image, url)
                 print(f"📝 Returning best partial result: {best_recipe.title}")
                 return best_recipe
             
-            # Last resort - return failure with image
+            # Last resort - return failure with image and source
+            fallback_source = service._extract_source_from_url(url)
             return Recipe(
                 title="Unable to parse recipe",
                 description="Could not extract recipe data using any method",
                 image=og_image,  # At least return the image
+                source=fallback_source,  # At least return the source
                 ingredients=["Could not extract ingredients"],
                 instructions=["Could not extract instructions"],
                 found_structured_data=False,
@@ -95,12 +97,63 @@ class RecipeService:
         soup = BeautifulSoup(response.content, 'html.parser')
         return response, soup
     
-    def _ensure_image(self, recipe: Recipe, fallback_image: Optional[str]) -> Recipe:
-        """Ensure recipe has an image, using fallback if needed"""
+    def _ensure_image_and_source(self, recipe: Recipe, fallback_image: Optional[str], url: str) -> Recipe:
+        """Ensure recipe has an image and source, using fallbacks if needed"""
+        # Ensure image
         if not recipe.image and fallback_image:
             recipe.image = fallback_image
             print("✅ Used og:image fallback")
+        
+        # Ensure source - extract from URL if not found
+        if not recipe.source:
+            recipe.source = self._extract_source_from_url(url)
+            if recipe.source:
+                print(f"✅ Used URL-based source: {recipe.source}")
+        
         return recipe
+    
+    def _extract_source_from_url(self, url: str) -> Optional[str]:
+        """Extract source name from URL as fallback"""
+        try:
+            from urllib.parse import urlparse
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.lower()
+            
+            # Remove www. prefix
+            if domain.startswith('www.'):
+                domain = domain[4:]
+            
+            # Manual mapping for common recipe sites
+            domain_mapping = {
+                'loveandlemons.com': 'Love and Lemons',
+                'asianinspirations.com.au': 'Asian Inspirations',
+                'allrecipes.com': 'Allrecipes',
+                'foodnetwork.com': 'Food Network',
+                'tasteofhome.com': 'Taste of Home',
+                'epicurious.com': 'Epicurious',
+                'simplyrecipes.com': 'Simply Recipes',
+                'seriouseats.com': 'Serious Eats',
+                'buzzfeed.com': 'BuzzFeed',
+                'delish.com': 'Delish',
+                'foodandwine.com': 'Food & Wine',
+                'bonappetit.com': 'Bon Appétit',
+            }
+            
+            if domain in domain_mapping:
+                return domain_mapping[domain]
+            
+            # Generic conversion: remove .com/.org/etc and make readable
+            domain_parts = domain.split('.')
+            if domain_parts:
+                base_name = domain_parts[0]
+                # Split on common separators and capitalize
+                words = base_name.replace('-', ' ').replace('_', ' ').split()
+                return ' '.join(word.capitalize() for word in words)
+            
+        except Exception:
+            pass
+        
+        return None
     
     @staticmethod
     def debug_recipe(url: str) -> DebugInfo:

@@ -10,6 +10,7 @@ class Recipe(BaseModel):
     title: str
     description: Optional[str] = None
     image: Optional[str] = None
+    source: Optional[str] = None
     ingredients: List[str]
     instructions: List[str]
     prep_time: Optional[str] = None
