@@ -4,6 +4,16 @@ interface Recipe {
     description?: string;
     image?: string;
     ingredients: string[];
+    raw_ingredients: string[];
+    raw_ingredients_detailed: Array<{
+      name: string;
+      quantity?: string;
+      unit?: string;
+      descriptors: string[];
+      original: string;
+      confidence: number;
+      shopping_display: string;
+    }>;
     instructions: string[];
     prep_time?: string;
     cook_time?: string;
@@ -13,6 +23,16 @@ interface Recipe {
     keywords: string[];
     found_structured_data: boolean;
     used_ai: boolean;
+    
+    // NEW: AI categorization fields
+    health_tags: string[];
+    dish_type: string[];
+    cuisine_type: string[];
+    meal_type: string[];
+    season: string[];
+    ai_confidence_notes?: string;
+    ai_enhanced: boolean;
+    ai_model_used?: string;
   }
   
   interface RecipeCardProps {
@@ -36,6 +56,123 @@ interface Recipe {
       return time;
     };
   
+    // Function to format shopping list item with bold ingredient name
+    const formatShoppingItem = (item: any): JSX.Element => {
+      const display = item.shopping_display;
+      const ingredientName = item.name;
+      
+      const regex = new RegExp(`\\b(${ingredientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
+      const parts = display.split(regex);
+      
+      return (
+        <span>
+          {parts.map((part: string, index: number) => {
+            if (part.toLowerCase() === ingredientName.toLowerCase()) {
+              return <strong key={index} className="text-gray-900 font-bold">{part}</strong>;
+            }
+            return part;
+          })}
+        </span>
+      );
+    };
+  
+    const highlightRawIngredient = (originalIngredient: string): JSX.Element => {
+      // Find the corresponding detailed ingredient
+      const detailed = recipe.raw_ingredients_detailed?.find(
+        d => d.original === originalIngredient
+      );
+      
+      if (!detailed) {
+        return <span>{originalIngredient}</span>;
+      }
+  
+      // Create a case-insensitive regex to find the raw ingredient name
+      const rawIngredientName = detailed.name;
+      const regex = new RegExp(`\\b(${rawIngredientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
+      
+      // Split the text and highlight matches
+      const parts = originalIngredient.split(regex);
+      
+      return (
+        <span>
+          {parts.map((part, index) => {
+            if (part.toLowerCase() === rawIngredientName.toLowerCase()) {
+              return <strong key={index} className="text-blue-700 font-bold">{part}</strong>;
+            }
+            return part;
+          })}
+        </span>
+      );
+    };
+  
+    // Function to copy shopping list to clipboard
+    const copyShoppingList = () => {
+      if (!recipe.raw_ingredients_detailed) return;
+      
+      const shoppingText = recipe.raw_ingredients_detailed
+        .map(item => `• ${item.shopping_display}`)
+        .join('\n');
+      
+      navigator.clipboard.writeText(`Shopping List for ${recipe.title}:\n\n${shoppingText}`);
+      
+      // Simple feedback (you could use a toast library instead)
+      alert('Shopping list copied to clipboard!');
+    };
+  
+    // NEW: Helper functions for AI categorization display
+    const getHealthTagStyle = (tag: string) => {
+      const styles: { [key: string]: string } = {
+        'vegan': 'bg-green-100 text-green-800',
+        'vegetarian': 'bg-green-100 text-green-700',
+        'gluten free': 'bg-yellow-100 text-yellow-800',
+        'dairy free': 'bg-blue-100 text-blue-800',
+        'keto': 'bg-purple-100 text-purple-800',
+        'paleo': 'bg-orange-100 text-orange-800',
+        'healthy': 'bg-emerald-100 text-emerald-800',
+      };
+      return styles[tag.toLowerCase()] || 'bg-gray-100 text-gray-700';
+    };
+  
+    const getSeasonEmoji = (season: string) => {
+      const emojis: { [key: string]: string } = {
+        'spring': '🌸',
+        'summer': '☀️',
+        'autumn': '🍂',
+        'winter': '❄️'
+      };
+      return emojis[season.toLowerCase()] || '📅';
+    };
+  
+    const getCuisineEmoji = (cuisine: string) => {
+      const emojis: { [key: string]: string } = {
+        'italian': '🇮🇹',
+        'french': '🇫🇷',
+        'mexican': '🇲🇽',
+        'chinese': '🇨🇳',
+        'japanese': '🇯🇵',
+        'indian': '🇮🇳',
+        'thai': '🇹🇭',
+        'american': '🇺🇸',
+        'mediterranean': '🌊',
+        'asian': '🥢',
+        'greek': '🇬🇷',
+        'korean': '🇰🇷',
+      };
+      return emojis[cuisine.toLowerCase()] || '🌍';
+    };
+  
+    const getMealTypeEmoji = (meal: string) => {
+      const emojis: { [key: string]: string } = {
+        'breakfast': '🌅',
+        'brunch': '🥐',
+        'lunch': '☀️',
+        'dinner': '🌙',
+        'snack': '🍿',
+        'dessert': '🍰'
+      };
+      return emojis[meal.toLowerCase()] || '🍽️';
+    };
+  
     return (
       <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
         {/* Header with Image */}
@@ -52,21 +189,28 @@ interface Recipe {
             />
           ) : null}
           <div className="absolute inset-0 bg-black/20 flex items-end">
-          <div className="p-6 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-3xl font-bold">{recipe.title}</h2>
-              {recipe.source && (
-                <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
-                  📍 {recipe.source}
+            <div className="p-6 text-white">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-3xl font-bold">{recipe.title}</h2>
+                <div className="flex items-center gap-2">
+                  {recipe.ai_enhanced && (
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                      🤖 AI Enhanced
+                    </div>
+                  )}
+                  {recipe.source && (
+                    <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
+                      📍 {recipe.source}
+                    </div>
+                  )}
                 </div>
+              </div>
+              {recipe.description && (
+                <p className="text-white/90">{recipe.description}</p>
               )}
             </div>
-            {recipe.description && (
-              <p className="text-white/90">{recipe.description}</p>
-            )}
           </div>
         </div>
-      </div>
   
         <div className="p-8">
           {/* Recipe Meta */}
@@ -82,27 +226,152 @@ interface Recipe {
               <div className="text-center p-3 bg-orange-50 rounded-lg">
                 <div className="text-2xl mb-1">🔥</div>
                 <div className="text-sm text-gray-600">Cook Time</div>
-                <div className="font-semibold text-gray-600">{formatTime(recipe.cook_time)}</div>
+                <div className="font-semibold text-gray-900">{formatTime(recipe.cook_time)}</div>
               </div>
             )}
             {recipe.servings && (
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <div className="text-2xl mb-1">🍽️</div>
                 <div className="text-sm text-gray-600">Servings</div>
-                <div className="font-semibold text-gray-600">{recipe.servings}</div>
+                <div className="font-semibold text-gray-900">{recipe.servings}</div>
               </div>
             )}
             {recipe.cuisine && (
               <div className="text-center p-3 bg-purple-50 rounded-lg">
                 <div className="text-2xl mb-1">🌍</div>
                 <div className="text-sm text-gray-600">Cuisine</div>
-                <div className="font-semibold text-gray-600">{recipe.cuisine}</div>
+                <div className="font-semibold text-gray-900">{recipe.cuisine}</div>
               </div>
             )}
           </div>
   
-          {/* Tags */}
-          {(recipe.category || recipe.keywords.length > 0) && (
+          {/* NEW: AI Insights Section */}
+          {recipe.ai_enhanced && (
+            <div className="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
+              <div className="flex items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                  🤖 AI Recipe Insights
+                  {recipe.ai_model_used && (
+                    <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                      {recipe.ai_model_used}
+                    </span>
+                  )}
+                </h3>
+              </div>
+  
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Health Tags */}
+                {recipe.health_tags && recipe.health_tags.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                      💚 Dietary & Health
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {recipe.health_tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getHealthTagStyle(tag)}`}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+  
+                {/* Dish Types */}
+                {recipe.dish_type && recipe.dish_type.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                      🍽️ Dish Type
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {recipe.dish_type.map((type, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium"
+                        >
+                          {type}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+  
+                {/* Cuisine Types */}
+                {recipe.cuisine_type && recipe.cuisine_type.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                      🌍 Cuisine Style
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {recipe.cuisine_type.map((cuisine, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium flex items-center"
+                        >
+                          {getCuisineEmoji(cuisine)} {cuisine}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+  
+                {/* Meal Types */}
+                {recipe.meal_type && recipe.meal_type.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                      ⏰ Meal Timing
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {recipe.meal_type.map((meal, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium flex items-center"
+                        >
+                          {getMealTypeEmoji(meal)} {meal}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+  
+              {/* Seasons - Full width section */}
+              {recipe.season && recipe.season.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-purple-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                    📅 Best Seasons
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {recipe.season.map((season, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-2 bg-gradient-to-r from-green-100 to-blue-100 text-gray-800 rounded-lg text-sm font-medium flex items-center"
+                      >
+                        {getSeasonEmoji(season)} {season.charAt(0).toUpperCase() + season.slice(1)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+  
+              {/* AI Confidence Notes */}
+              {recipe.ai_confidence_notes && (
+                <div className="mt-4 pt-4 border-t border-purple-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                    💭 AI Analysis Notes
+                  </h4>
+                  <p className="text-sm text-gray-600 italic leading-relaxed">
+                    "{recipe.ai_confidence_notes}"
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+  
+          {/* Legacy Tags (if no AI categorization) */}
+          {!recipe.ai_enhanced && (recipe.category || recipe.keywords.length > 0) && (
             <div className="mb-8">
               <div className="flex flex-wrap gap-2">
                 {recipe.category && (
@@ -122,11 +391,39 @@ interface Recipe {
             </div>
           )}
   
+          {/* Shopping List Section */}
+          {recipe.raw_ingredients_detailed && recipe.raw_ingredients_detailed.length > 0 && (
+            <div className="mb-8 bg-green-50 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                  🛒 Shopping List
+                  <span className="ml-2 text-sm font-normal text-gray-600">
+                    ({recipe.raw_ingredients_detailed.length} items)
+                  </span>
+                </h3>
+                <button
+                  onClick={copyShoppingList}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  📋 Copy List
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {recipe.raw_ingredients_detailed.map((item, index) => (
+                  <div key={index} className="flex items-center py-1">
+                    <span className="text-green-600 mr-2">✓</span>
+                    <span className="text-gray-800">{formatShoppingItem(item)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+  
           <div className="grid md:grid-cols-2 gap-8">
             {/* Ingredients */}
             <div>
-              <h3 className="text-2xl font-bold mb-4 flex items-center text-gray-600">
-                🛒 Ingredients
+              <h3 className="text-2xl font-bold mb-4 flex items-center text-gray-800">
+                🥘 Ingredients
                 <span className="ml-2 text-sm font-normal text-gray-500">
                   ({recipe.ingredients.length})
                 </span>
@@ -143,7 +440,7 @@ interface Recipe {
   
             {/* Instructions */}
             <div>
-              <h3 className="text-2xl font-bold mb-4 flex items-center text-gray-600">
+              <h3 className="text-2xl font-bold mb-4 flex items-center text-gray-800">
                 📝 Instructions
                 <span className="ml-2 text-sm font-normal text-gray-500">
                   ({recipe.instructions.length} steps)
@@ -172,6 +469,16 @@ interface Recipe {
                 <span className="flex items-center">
                   {recipe.used_ai ? '🤖' : '📊'} {recipe.used_ai ? 'AI Parsed' : 'Data Extracted'}
                 </span>
+                {recipe.ai_enhanced && (
+                  <span className="flex items-center text-purple-600">
+                    ✨ AI Enhanced
+                  </span>
+                )}
+                {recipe.raw_ingredients_detailed && (
+                  <span className="flex items-center">
+                    🔍 {recipe.raw_ingredients.length} Raw Ingredients
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => window.print()}

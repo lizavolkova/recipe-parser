@@ -1,3 +1,4 @@
+# backend/app/config.py (Updated for better AI consistency)
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -19,11 +20,12 @@ class Settings:
     # OpenAI Configuration
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # AI Configuration
+    # AI Configuration (optimized for consistency)
     AI_MODEL: str = os.getenv("AI_MODEL", "gpt-3.5-turbo")
     MAX_CONTENT_LENGTH: int = int(os.getenv("MAX_CONTENT_LENGTH", "8000"))
-    AI_TEMPERATURE: float = float(os.getenv("AI_TEMPERATURE", "0.1"))
-    AI_MAX_TOKENS: int = int(os.getenv("AI_MAX_TOKENS", "1000"))
+    AI_TEMPERATURE: float = float(os.getenv("AI_TEMPERATURE", "0.1"))  # Lower default for consistency
+    AI_MAX_TOKENS: int = int(os.getenv("AI_MAX_TOKENS", "800"))
+    AI_SEED: int = int(os.getenv("AI_SEED", "42"))  # Fixed seed for deterministic results
 
     # Request Configuration
     REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "10"))
@@ -38,6 +40,8 @@ if settings.OPENAI_API_KEY:
     try:
         openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
         print("✅ OpenAI client initialized")
+        print(f"🎯 AI Temperature set to {settings.AI_TEMPERATURE} for consistency")
+        print(f"🎲 AI Seed set to {settings.AI_SEED} for deterministic results")
     except Exception as e:
         print(f"❌ Failed to initialize OpenAI client: {e}")
         openai_client = None
