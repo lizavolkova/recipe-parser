@@ -12,6 +12,8 @@ class Recipe(BaseModel):
     image: Optional[str] = None
     source: Optional[str] = None
     ingredients: List[str]
+    raw_ingredients: Optional[List[str]] = []
+    raw_ingredients_detailed: Optional[List[dict]] = []
     instructions: List[str]
     prep_time: Optional[str] = None
     cook_time: Optional[str] = None

@@ -7,6 +7,7 @@ from app.config import settings
 from app.models import Recipe, DebugInfo
 from .parsers import RecipeScrapersParser, ExtructParser, parse_with_ai
 from .processors import ImageExtractor, RecipeConverter
+from .ingredient_parser import parse_ingredients_list, get_raw_ingredients_for_search, get_shopping_list_items
 
 class RecipeService:
     """Main recipe parsing service - orchestrates different parsing strategies"""
@@ -14,6 +15,38 @@ class RecipeService:
     def __init__(self):
         self.recipe_scrapers_parser = RecipeScrapersParser()
         self.extruct_parser = ExtructParser()
+
+    def _add_raw_ingredients(self, recipe: Recipe) -> Recipe:
+        """Add structured raw ingredients to a recipe"""
+        if recipe.ingredients:
+            try:
+                # Parse ingredients into structured format
+                structured_ingredients = parse_ingredients_list(recipe.ingredients)
+                
+                # Extract simple list for recipe search/filtering
+                recipe.raw_ingredients = get_raw_ingredients_for_search(structured_ingredients)
+                
+                # Create detailed info for API response
+                recipe.raw_ingredients_detailed = [
+                    {
+                        "name": ing.raw_ingredient,
+                        "quantity": ing.quantity,
+                        "unit": ing.unit,
+                        "descriptors": ing.descriptors,
+                        "original": ing.original_text,
+                        "confidence": ing.confidence,
+                        "shopping_display": f"{ing.quantity or ''} {ing.unit or ''} {ing.raw_ingredient}".strip()
+                    }
+                    for ing in structured_ingredients
+                ]
+                
+                print(f"✅ Extracted {len(recipe.raw_ingredients)} structured ingredients")
+            except Exception as e:
+                print(f"⚠️ Failed to extract raw ingredients: {e}")
+                recipe.raw_ingredients = []
+                recipe.raw_ingredients_detailed = []
+        
+        return recipe   
     
     @staticmethod
     async def parse_recipe_hybrid(url: str) -> Recipe:
@@ -33,6 +66,7 @@ class RecipeService:
             recipe = service.recipe_scrapers_parser.parse(url)
             if recipe and RecipeConverter.is_complete_recipe(recipe):
                 recipe = service._ensure_image_and_source(recipe, og_image, url)
+                recipe = service._add_raw_ingredients(recipe)
                 print("✅ recipe-scrapers successful!")
                 return recipe
             
@@ -41,7 +75,7 @@ class RecipeService:
             recipe = service.extruct_parser.parse(url, html_content=response.text)
             if recipe:
                 recipe = service._ensure_image_and_source(recipe, og_image, url)
-                
+                recipe = service._add_raw_ingredients(recipe)
                 if RecipeConverter.is_complete_recipe(recipe):
                     print("✅ extruct successful!")
                     return recipe
@@ -57,7 +91,7 @@ class RecipeService:
             ai_recipe = await parse_with_ai(soup, url)
             if ai_recipe:
                 ai_recipe = service._ensure_image_and_source(ai_recipe, og_image, url)
-                
+                ai_recipe = service._add_raw_ingredients(ai_recipe)
                 if RecipeConverter.is_complete_recipe(ai_recipe):
                     print("✅ AI successful!")
                     return ai_recipe
@@ -69,6 +103,7 @@ class RecipeService:
             best_recipe = recipe or ai_recipe
             if best_recipe:
                 best_recipe = service._ensure_image_and_source(best_recipe, og_image, url)
+                best_recipe = service._add_raw_ingredients(best_recipe)
                 print(f"📝 Returning best partial result: {best_recipe.title}")
                 return best_recipe
             
@@ -81,6 +116,8 @@ class RecipeService:
                 source=fallback_source,  # At least return the source
                 ingredients=["Could not extract ingredients"],
                 instructions=["Could not extract instructions"],
+                raw_ingredients=[],
+                raw_ingredients_detailed=[],
                 found_structured_data=False,
                 used_ai=False
             )
