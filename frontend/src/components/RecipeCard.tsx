@@ -24,7 +24,7 @@ interface Recipe {
     found_structured_data: boolean;
     used_ai: boolean;
     
-    // NEW: AI categorization fields
+    // AI categorization fields
     health_tags: string[];
     dish_type: string[];
     cuisine_type: string[];
@@ -37,9 +37,11 @@ interface Recipe {
   
   interface RecipeCardProps {
     recipe: Recipe;
+    onReCategorize?: () => void; // NEW: callback for re-categorization
+    aiLoading?: boolean; // NEW: loading state for AI operations
   }
   
-  export function RecipeCard({ recipe }: RecipeCardProps) {
+  export function RecipeCard({ recipe, onReCategorize, aiLoading = false }: RecipeCardProps) {
     const formatTime = (time?: string) => {
       if (!time) return null;
       // Handle ISO 8601 duration format (PT30M) or plain text
@@ -119,7 +121,7 @@ interface Recipe {
       alert('Shopping list copied to clipboard!');
     };
   
-    // NEW: Helper functions for AI categorization display
+    // Helper functions for AI categorization display
     const getHealthTagStyle = (tag: string) => {
       const styles: { [key: string]: string } = {
         'vegan': 'bg-green-100 text-green-800',
@@ -245,133 +247,197 @@ interface Recipe {
             )}
           </div>
   
-          {/* NEW: AI Insights Section */}
+          {/* NEW: AI Insights Section with Re-categorization Button */}
           {recipe.ai_enhanced && (
             <div className="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
-              <div className="flex items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                  🤖 AI Recipe Insights
-                  {recipe.ai_model_used && (
-                    <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                      {recipe.ai_model_used}
-                    </span>
-                  )}
-                </h3>
-              </div>
-  
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Health Tags */}
-                {recipe.health_tags && recipe.health_tags.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      💚 Dietary & Health
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {recipe.health_tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getHealthTagStyle(tag)}`}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-  
-                {/* Dish Types */}
-                {recipe.dish_type && recipe.dish_type.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      🍽️ Dish Type
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {recipe.dish_type.map((type, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium"
-                        >
-                          {type}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-  
-                {/* Cuisine Types */}
-                {recipe.cuisine_type && recipe.cuisine_type.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      🌍 Cuisine Style
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {recipe.cuisine_type.map((cuisine, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium flex items-center"
-                        >
-                          {getCuisineEmoji(cuisine)} {cuisine}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-  
-                {/* Meal Types */}
-                {recipe.meal_type && recipe.meal_type.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      ⏰ Meal Timing
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {recipe.meal_type.map((meal, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium flex items-center"
-                        >
-                          {getMealTypeEmoji(meal)} {meal}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-  
-              {/* Seasons - Full width section */}
-              {recipe.season && recipe.season.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-purple-200">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                    📅 Best Seasons
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {recipe.season.map((season, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-2 bg-gradient-to-r from-green-100 to-blue-100 text-gray-800 rounded-lg text-sm font-medium flex items-center"
-                      >
-                        {getSeasonEmoji(season)} {season.charAt(0).toUpperCase() + season.slice(1)}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                    🤖 AI Recipe Insights
+                    {recipe.ai_model_used && (
+                      <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                        {recipe.ai_model_used}
                       </span>
-                    ))}
-                  </div>
+                    )}
+                  </h3>
                 </div>
-              )}
+                
+                {/* NEW: Refresh AI Tags Button */}
+                {onReCategorize && (
+                  <button
+                    onClick={onReCategorize}
+                    disabled={aiLoading}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-top-white rounded-full animate-spin"></div>
+                        Re-analyzing...
+                      </>
+                    ) : (
+                      <>
+                        🔄 Refresh AI Tags
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
   
-              {/* AI Confidence Notes */}
-              {recipe.ai_confidence_notes && (
-                <div className="mt-4 pt-4 border-t border-purple-200">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                    💭 AI Analysis Notes
-                  </h4>
-                  <p className="text-sm text-gray-600 italic leading-relaxed">
-                    "{recipe.ai_confidence_notes}"
-                  </p>
+              {/* Show loading overlay when re-categorizing */}
+              <div className={`relative ${aiLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Health Tags */}
+                  {recipe.health_tags && recipe.health_tags.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        💚 Dietary & Health
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {recipe.health_tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getHealthTagStyle(tag)}`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+  
+                  {/* Dish Types */}
+                  {recipe.dish_type && recipe.dish_type.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        🍽️ Dish Type
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {recipe.dish_type.map((type, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium"
+                          >
+                            {type}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+  
+                  {/* Cuisine Types */}
+                  {recipe.cuisine_type && recipe.cuisine_type.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        🌍 Cuisine Style
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {recipe.cuisine_type.map((cuisine, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium flex items-center"
+                          >
+                            {getCuisineEmoji(cuisine)} {cuisine}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+  
+                  {/* Meal Types */}
+                  {recipe.meal_type && recipe.meal_type.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        ⏰ Meal Timing
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {recipe.meal_type.map((meal, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium flex items-center"
+                          >
+                            {getMealTypeEmoji(meal)} {meal}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+  
+                {/* Seasons - Full width section */}
+                {recipe.season && recipe.season.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-purple-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                      📅 Best Seasons
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {recipe.season.map((season, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-2 bg-gradient-to-r from-green-100 to-blue-100 text-gray-800 rounded-lg text-sm font-medium flex items-center"
+                        >
+                          {getSeasonEmoji(season)} {season.charAt(0).toUpperCase() + season.slice(1)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+  
+                {/* AI Confidence Notes */}
+                {recipe.ai_confidence_notes && (
+                  <div className="mt-4 pt-4 border-t border-purple-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                      💭 AI Analysis Notes
+                    </h4>
+                    <p className="text-sm text-gray-600 italic leading-relaxed">
+                      "{recipe.ai_confidence_notes}"
+                    </p>
+                  </div>
+                )}
+              </div>
+  
+              {/* Loading overlay for AI re-categorization */}
+              {aiLoading && (
+                <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-8 h-8 border-4 border-purple-200 border-top-purple-500 rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600 font-medium">Refreshing AI insights...</p>
+                  </div>
                 </div>
               )}
             </div>
           )}
   
-          {/* Legacy Tags (if no AI categorization) */}
-          {!recipe.ai_enhanced && (recipe.category || recipe.keywords.length > 0) && (
+          {/* Show AI Insights placeholder for non-AI enhanced recipes */}
+          {!recipe.ai_enhanced && onReCategorize && (
+            <div className="mb-8 bg-gray-50 rounded-xl p-6 border border-gray-200 text-center">
+              <div className="flex flex-col items-center space-y-3">
+                <div className="text-4xl">🤖</div>
+                <h3 className="text-lg font-semibold text-gray-700">Add AI Recipe Insights</h3>
+                <p className="text-gray-600 text-sm max-w-md">
+                  Get smart categorization including dietary tags, cuisine type, seasonal recommendations, and more.
+                </p>
+                <button
+                  onClick={onReCategorize}
+                  disabled={aiLoading}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+                >
+                  {aiLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-top-white rounded-full animate-spin"></div>
+                      Analyzing with AI...
+                    </>
+                  ) : (
+                    <>
+                      ✨ Add AI Insights
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+  
+          {/* Legacy Tags (if no AI categorization and no re-categorize option) */}
+          {!recipe.ai_enhanced && !onReCategorize && (recipe.category || recipe.keywords.length > 0) && (
             <div className="mb-8">
               <div className="flex flex-wrap gap-2">
                 {recipe.category && (

@@ -1,4 +1,4 @@
-# backend/app/services/ai/recipe_categorizer.py (Updated with explicit dietary reasoning)
+# backend/app/services/ai/recipe_categorizer.py (FIXED VERSION)
 import json
 import traceback
 from typing import Optional, List, Dict, Any
@@ -90,78 +90,85 @@ CRITICAL: ONLY analyze what is actually present in the recipe. Do NOT hallucinat
 
 CATEGORY GUIDELINES:
 
-HEALTH TAGS - Use SYSTEMATIC analysis for dietary restrictions:
+HEALTH TAGS - Use systematic analysis for dietary restrictions:
 {', '.join(self.HEALTH_TAGS)}
 
-DIETARY ANALYSIS - STEP BY STEP PROCESS:
-1. First, list every single ingredient in the recipe
-2. For each ingredient, determine if it contains animal products
-3. Apply the most specific applicable category
+DIETARY CLASSIFICATION RULES:
+- VEGAN: Contains ZERO animal products (vegetables, fruits, grains, legumes, nuts, seeds, plant oils, soy sauce, vinegar, spices, herbs, agave syrup, chili crisp, tofu, tempeh, etc.)
+- VEGETARIAN: No meat/seafood but may contain dairy/eggs
+- PESCATARIAN: Contains fish/seafood but no other meat
+- RED MEAT FREE: No beef, pork, lamb, or other red meat (but may contain poultry/fish)
+- DAIRY FREE: No milk, cheese, butter, cream, yogurt, or other dairy products
+- If ALL ingredients are plant-based, tag as VEGAN (not vegetarian)
 
-VEGAN INGREDIENTS (NO animal products):
-- ALL vegetables, fruits, grains, legumes, nuts, seeds
-- Plant oils (olive oil, sesame oil, vegetable oil, peanut oil, coconut oil)
-- Plant-based seasonings (soy sauce, vinegar, salt, sugar, spices, herbs)
-- Tofu, tempeh, plant-based milks, nutritional yeast
-- Garlic, ginger, onions, scallions, chilies, etc.
+RED MEAT INCLUDES: beef, pork, lamb, mutton, venison, bison, goat
+POULTRY INCLUDES: chicken, turkey, duck, etc. (NOT red meat)
 
-NON-VEGAN INGREDIENTS (contain animal products):
-- Meat: beef, pork, chicken, lamb, etc.
-- Dairy: milk, butter, cream, cheese, yogurt, ghee
-- Eggs: whole eggs, egg whites, egg yolks
-- Seafood: fish, shrimp, crab, lobster, oysters, fish sauce
-- Animal-derived: honey, gelatin, lard, bone broth, chicken/beef stock
-- Some processed items: worcestershire sauce (often contains anchovies), some wines
-
-DIETARY HIERARCHY (choose the MOST SPECIFIC that applies):
-1. VEGAN: Contains ZERO animal products (most restrictive)
-2. VEGETARIAN: No meat/seafood but may contain dairy/eggs
-3. PESCATARIAN: Contains fish/seafood but no other meat
-4. No dietary restriction if contains meat
-
-SYSTEMATIC CHECKING PROCESS:
-- Go through EVERY ingredient one by one
-- Ask: "Does this ingredient come from an animal?"
-- If ALL ingredients are plant-based → VEGAN
-- If contains dairy/eggs but no meat/fish → VEGETARIAN  
-- If contains fish but no other meat → PESCATARIAN
-- BE PRECISE: Don't guess, use the ingredient lists above
+HEALTHY TAG CRITERIA - Tag as "healthy" if the dish has:
+- Lots of vegetables or fruits as main components
+- Lean proteins (fish, chicken, tofu, beans)
+- Whole grains or minimal processing
+- Limited fried foods or heavy cream sauces
+- Balanced nutritional profile
 
 DISH TYPES - What type of dish this is (can be multiple):
 {', '.join(self.DISH_TYPES)}
 
+COOKING METHOD DETECTION:
+- If recipe mentions grilling, BBQ, or grill pan → include "grilling"
+- If served as small portions or before main course → include "starter or appetizer"
+- Look for cooking methods in instructions and title
+
 CUISINE TYPES - The cultural/regional cooking style:
 {', '.join(self.CUISINE_TYPES)}
 
-MEAL TYPES - When this would typically be eaten:
+CUISINE TAGGING RULES:
+- Tag BOTH specific AND broader categories when applicable, but be culturally accurate
+- Chinese/Korean/Thai/Vietnamese/Japanese → ALSO tag as "asian"
+- Indian/Middle Eastern → Do NOT tag as "asian" (distinct flavor profiles)
+- Italian/French/Spanish/Greek → Can tag as "mediterranean" if appropriate
+- Examples: "chinese, asian" or "thai, asian" but just "indian" (not "indian, asian")
+
+MEAL TYPES - When this would typically be eaten (can be multiple):
 {', '.join(self.MEAL_TYPES)}
+
+MEAL TYPE FLEXIBILITY:
+- Many dishes work for multiple meals (lunch AND dinner)
+- Consider portion size and ingredients
+- Don't be overly restrictive - if it could reasonably be eaten at different times, include multiple tags
 
 SEASONS - When ingredients are typically in season or dish is commonly eaten:
 {', '.join(self.SEASONS)}
 
 SEASONAL ASSIGNMENT RULES:
-1. DEFAULT to ALL 4 SEASONS unless there are strong seasonal indicators
-2. Only assign specific seasons if there are multiple clear seasonal cues (seasonal ingredients + seasonal cooking methods)
-3. Generic dishes (curries, pasta, basic proteins) = ALL seasons unless strong seasonal elements
-4. Don't assign seasons based on single ingredients unless they're strongly seasonal (like asparagus = spring)
+- Consider the main ingredients and dish characteristics
+- Cold salads with summer vegetables (cucumber, tomato) = summer primarily
+- Warm soups and stews can be autumn AND winter (not just one)
+- Light, refreshing dishes = summer
+- Hearty, warming dishes = autumn and/or winter
+- Fresh spring vegetables = spring
+- Many dishes work across multiple seasons - don't be overly restrictive
 
-CONSISTENCY REQUIREMENTS:
-- Always apply the same logic to the same ingredients
-- Use systematic dietary analysis, not guesswork
-- Be deterministic - same recipe should always get same categorization
-- When uncertain, choose the more conservative/broader category
+SEASONAL EXAMPLES:
+- Cucumber salad = summer
+- Roasted garlic soup = autumn, winter (both)
+- Pumpkin soup = autumn
+- Asparagus dishes = spring
+- Grilled dishes = summer (but can span multiple if hearty)
 
 IMPORTANT RULES:
 1. Only use tags from the provided lists
-2. Be generous with applicable tags - better to include more relevant tags than miss them
-3. For health tags, use SYSTEMATIC ingredient-by-ingredient analysis
-4. For seasons, be CONSERVATIVE - default to all 4 seasons unless multiple strong seasonal indicators
-5. Only reference ingredients and cooking methods that are ACTUALLY in the recipe
-6. Never hallucinate or assume information not provided
-7. Always return valid JSON in the exact format requested
-8. Base decisions ONLY on actual ingredients, cooking methods, and traditional associations
-9. BE CONSISTENT - same input should always produce same output
-10. For dietary analysis, be METHODICAL - check every single ingredient against the lists above"""
+2. Be generous with applicable tags when appropriate - better to include relevant tags than miss them
+3. For health tags, systematically check all ingredients and cooking methods
+4. For seasons and meal types, don't be overly restrictive - many dishes work across categories
+5. Always include broader cuisine categories (asian, mediterranean) alongside specific ones
+6. Detect cooking methods from instructions and titles
+7. Consider the "healthy" tag generously for vegetable-forward, balanced dishes
+8. Only reference ingredients and cooking methods that are ACTUALLY in the recipe
+9. Always return valid JSON in the exact format requested
+10. BE CONSISTENT - same recipe should always get same categorization
+11. If all ingredients are plant-based, tag as VEGAN (not vegetarian)
+12. Remember: lamb, beef, pork = red meat; chicken, turkey = poultry (not red meat)"""
 
     def _build_categorization_prompt(self, recipe: Recipe) -> str:
         """Build the user prompt with recipe data"""
@@ -174,7 +181,7 @@ IMPORTANT RULES:
         # Create a clean instruction summary
         instructions_text = " ".join(recipe.instructions[:3])[:300] + "..." if recipe.instructions else "No instructions provided"
         
-        return f"""Analyze this recipe and categorize it SYSTEMATICALLY and CONSISTENTLY:
+        return f"""Analyze this recipe and categorize it systematically:
 
 **RECIPE: {recipe.title}**
 
@@ -191,68 +198,42 @@ IMPORTANT RULES:
 - Servings: {recipe.servings or 'Unknown'}
 - Source: {recipe.source or 'Unknown'}
 
-Return ONLY a JSON object with this exact structure:
+Return ONLY a JSON object with this exact structure (pay attention to commas):
 {{
     "health_tags": ["tag1", "tag2"],
     "dish_type": ["type1", "type2"],
     "cuisine_type": ["cuisine1"],
     "meal_type": ["meal1", "meal2"],
-    "season": ["season1", "season2", "season3", "season4"],
-    "confidence_notes": "MUST include detailed dietary analysis explanation"
+    "season": ["season1"],
+    "confidence_notes": "Friendly explanation of why you chose these categories"
 }}
 
-MANDATORY DIETARY ANALYSIS PROCESS (MUST be included in confidence_notes):
+JSON FORMATTING REQUIREMENTS:
+- CRITICAL: Include commas after every field except the last one
+- Use double quotes around all keys and string values
+- Use square brackets for arrays, even if empty: []
+- Ensure proper comma placement - missing commas will cause parsing errors
 
-STEP 1: List every single ingredient from the recipe
-STEP 2: For each ingredient, explicitly state whether it's PLANT-BASED or ANIMAL-BASED
-STEP 3: Justify your final dietary classification
+CONFIDENCE NOTES STYLE:
+- Explain your reasoning in a natural, conversational way
+- Focus on what led you to pick specific categories
+- Be friendly and approachable, not robotic or overly formal
+- Keep it concise but informative about your choices
 
-FORMAT YOUR DIETARY ANALYSIS EXACTLY LIKE THIS in confidence_notes:
-"Dietary Analysis: [ingredient 1] = plant-based, [ingredient 2] = plant-based, [ingredient 3] = plant-based, etc. 
-Since ALL ingredients are plant-based, this recipe is VEGAN."
+EXAMPLES OF GOOD CONFIDENCE NOTES:
+- "This is vegan since it uses only plant ingredients. Perfect for summer with its cool, refreshing cucumber base."
+- "All plant-based ingredients make this vegan. The warming braised cooking method screams winter comfort food."
+- "Completely plant-based, so it's vegan. The traditional soy sauce and stir-fry technique point to Asian cuisine."
+- "No animal products here, making it vegan. The oats and morning-friendly ingredients make this ideal for breakfast."
 
-OR if not vegan:
-"Dietary Analysis: [ingredient 1] = plant-based, [ingredient 2] = ANIMAL-BASED (contains dairy/eggs/meat), etc. 
-Since [specific ingredient] contains [specific animal product], this recipe is VEGETARIAN, not vegan."
-
-CRITICAL RULES FOR DIETARY CLASSIFICATION:
-- If you tag as VEGETARIAN instead of VEGAN, you MUST explicitly identify which ingredient contains animal products
-- If you cannot identify any animal products but still tag as VEGETARIAN, explain why
-- Common plant-based ingredients that are NOT animal products:
-  * Soy sauce (fermented soybeans - VEGAN)
-  * All vegetable oils (olive, sesame, peanut, etc. - VEGAN)
-  * Rice vinegar (plant-based - VEGAN)
-  * Sugar (plant-based - VEGAN)
-  * All vegetables, fruits, nuts, seeds, spices, herbs (VEGAN)
-  * Tofu, tempeh (plant-based - VEGAN)
-
-EXAMPLES OF PROPER DIETARY ANALYSIS:
-Example 1: "Dietary Analysis: cucumbers = plant-based, sesame oil = plant-based, soy sauce = plant-based, rice vinegar = plant-based, garlic = plant-based. Since ALL ingredients are plant-based, this recipe is VEGAN."
-
-Example 2: "Dietary Analysis: pasta = plant-based, tomatoes = plant-based, parmesan cheese = ANIMAL-BASED (contains dairy). Since parmesan cheese contains dairy, this recipe is VEGETARIAN, not vegan."
-
-CRITICAL INSTRUCTIONS FOR SEASONAL ASSIGNMENT:
-- DEFAULT to ALL 4 SEASONS unless there are multiple strong seasonal indicators
-- Only assign specific seasons if there are several clear seasonal cues together
-- Generic dishes (curries, pasta, basic proteins, stews, salads) = ALL seasons unless strong seasonal elements
-
-ACCURACY REQUIREMENTS:
-- Only reference ingredients that are actually listed in the recipe
-- Only reference cooking methods that are actually described in the instructions  
-- Do not hallucinate or assume any information not provided
-- BE CONSISTENT - this exact recipe should always get the same categorization
-- MOST IMPORTANTLY: If you tag as VEGETARIAN, you MUST explain exactly which ingredient contains animal products and why
-
-Remember:
-- Include ALL applicable tags for each category
-- For health_tags, you MUST provide step-by-step ingredient analysis in confidence_notes
-- For seasons, be CONSERVATIVE - default to all 4 seasons for generic dishes
-- Base decisions ONLY on actual recipe content, never assume or hallucinate
-- CONSISTENCY IS CRITICAL - same recipe must always get same result
-- MANDATORY: Your confidence_notes must include the detailed dietary analysis format shown above"""
+IMPORTANT REMINDERS:
+- If ALL ingredients are plant-based, tag as VEGAN (not vegetarian)
+- Consider dish characteristics for seasonal assignment (cucumber salad = summer)
+- Only reference ingredients and cooking methods actually in the recipe
+- Be consistent - same recipe should always get same categorization"""
 
     def _parse_categorization_response(self, ai_response: str, recipe_title: str) -> Optional[RecipeCategorization]:
-        """Parse AI response into RecipeCategorization object"""
+        """Parse AI response into RecipeCategorization object with robust JSON handling"""
         
         try:
             # Handle JSON wrapped in code blocks
@@ -263,7 +244,22 @@ Remember:
             else:
                 json_str = ai_response
             
-            data = json.loads(json_str)
+            # Try to parse JSON, with fallback for common formatting issues
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                print(f"🤖 Initial JSON parse failed: {e}")
+                print(f"🤖 Attempting to fix common JSON issues...")
+                
+                # Try to fix common issues
+                fixed_json = self._fix_common_json_issues(json_str)
+                try:
+                    data = json.loads(fixed_json)
+                    print(f"🤖 JSON fixed and parsed successfully!")
+                except json.JSONDecodeError:
+                    print(f"🤖 Could not fix JSON formatting")
+                    print(f"🤖 Raw response: {ai_response}")
+                    return None
             
             # Validate required fields
             required_fields = ['health_tags', 'dish_type', 'cuisine_type', 'meal_type', 'season']
@@ -284,10 +280,19 @@ Remember:
             data['meal_type'] = self._validate_tags(data['meal_type'], self.MEAL_TYPES, 'meal_types')
             data['season'] = self._validate_tags(data['season'], self.SEASONS, 'seasons')
             
-            # Conservative approach: default to all seasons if none specified or if validation removed all
+            # Updated: Only default to all seasons if no valid seasons were returned AND it's not a clearly seasonal dish
             if not data['season']:
-                data['season'] = self.SEASONS.copy()
-                print(f"🤖 No specific seasons identified, defaulting to all seasons (conservative approach): {recipe_title}")
+                # Check if this might be a seasonal dish that AI missed
+                title_lower = recipe_title.lower()
+                if any(term in title_lower for term in ['cucumber', 'tomato', 'gazpacho', 'cold soup']):
+                    data['season'] = ['summer']
+                    print(f"🤖 Applied summer season based on dish characteristics: {recipe_title}")
+                elif any(term in title_lower for term in ['pumpkin', 'butternut', 'hot chocolate', 'stew']):
+                    data['season'] = ['autumn', 'winter']
+                    print(f"🤖 Applied autumn/winter season based on dish characteristics: {recipe_title}")
+                else:
+                    data['season'] = self.SEASONS.copy()
+                    print(f"🤖 No specific seasons identified, defaulting to all seasons: {recipe_title}")
             
             categorization = RecipeCategorization(
                 health_tags=data['health_tags'],
@@ -317,6 +322,21 @@ Remember:
             print(f"🤖 Error parsing categorization response: {e}")
             return None
     
+    def _fix_common_json_issues(self, json_str: str) -> str:
+        """Attempt to fix common JSON formatting issues"""
+        import re
+        
+        # Fix missing commas before "confidence_notes"
+        json_str = re.sub(r'(\])\s*("confidence_notes")', r'\1,\n    \2', json_str)
+        
+        # Fix missing commas before any field that starts with a quote
+        json_str = re.sub(r'(\]|\})\s*("[\w_]+":)', r'\1,\n    \2', json_str)
+        
+        # Fix trailing commas before closing brace
+        json_str = re.sub(r',\s*\}', r'\n}', json_str)
+        
+        return json_str
+    
     def _validate_tags(self, tags: List[str], valid_tags: List[str], category: str) -> List[str]:
         """Validate and filter tags against known good tags"""
         if not tags:
@@ -337,7 +357,7 @@ Remember:
         
         return validated
 
-# Enhanced recipe service integration
+# Enhanced recipe service integration (no changes needed)
 class EnhancedRecipeService:
     """Enhanced recipe service that includes AI categorization"""
     
@@ -412,7 +432,7 @@ class EnhancedRecipeService:
             print(f"Traceback: {traceback.format_exc()}")
             raise
 
-# Batch categorization for existing recipes
+# Batch categorization for existing recipes (no changes needed)
 class BatchCategorizationService:
     """Service for categorizing existing recipes in bulk"""
     

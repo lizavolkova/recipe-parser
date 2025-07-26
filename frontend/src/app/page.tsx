@@ -18,12 +18,33 @@ interface Recipe {
   keywords: string[];
   found_structured_data: boolean;
   used_ai: boolean;
+  raw_ingredients: string[];
+  raw_ingredients_detailed: Array<{
+    name: string;
+    quantity?: string;
+    unit?: string;
+    descriptors: string[];
+    original: string;
+    confidence: number;
+    shopping_display: string;
+  }>;
+  
+  // AI categorization fields
+  health_tags: string[];
+  dish_type: string[];
+  cuisine_type: string[];
+  meal_type: string[];
+  season: string[];
+  ai_confidence_notes?: string;
+  ai_enhanced: boolean;
+  ai_model_used?: string;
 }
 
 export default function Home() {
   const [url, setUrl] = useState('');
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false); // NEW: separate loading state for AI re-categorization
   const [error, setError] = useState<string | null>(null);
 
   const parseRecipe = async () => {
@@ -55,6 +76,35 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'Failed to parse recipe');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // NEW: Function to re-categorize recipe with AI
+  const reCategorizeRecipe = async () => {
+    if (!recipe) return;
+
+    setAiLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('http://localhost:8000/categorize-recipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(recipe),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const updatedRecipe: Recipe = await response.json();
+      setRecipe(updatedRecipe);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to re-categorize recipe');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -142,7 +192,13 @@ export default function Home() {
         )}
 
         {/* Recipe Result */}
-        {recipe && <RecipeCard recipe={recipe} />}
+        {recipe && (
+          <RecipeCard 
+            recipe={recipe} 
+            onReCategorize={reCategorizeRecipe}
+            aiLoading={aiLoading}
+          />
+        )}
       </div>
     </div>
   );

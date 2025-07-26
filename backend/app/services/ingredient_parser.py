@@ -33,7 +33,7 @@ UNICODE_TO_FRACTION = {
 FRACTION_TO_UNICODE = {v: k for k, v in UNICODE_TO_FRACTION.items()}
 
 # Configuration
-CONFIDENCE_THRESHOLD = 0.75  # Adjustable threshold
+CONFIDENCE_THRESHOLD = 0.6  # Adjustable threshold
 
 
 def normalize_fractions_for_parsing(text: str) -> str:
